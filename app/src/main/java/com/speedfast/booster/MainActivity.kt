@@ -1,3 +1,4 @@
+
 package com.speedfast.booster
 
 import android.app.Activity
@@ -16,6 +17,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -27,12 +29,15 @@ class MainActivity : Activity() {
     private lateinit var ramText: TextView
     private lateinit var storageText: TextView
     private lateinit var statusText: TextView
+    private lateinit var ramProgress: ProgressBar
+    private lateinit var storageProgress: ProgressBar
     private lateinit var autoCleanButton: Button
 
-    private val bg = Color.rgb(8, 13, 11)
-    private val panel = Color.rgb(19, 28, 24)
+    private val bg = Color.rgb(7, 12, 10)
+    private val panel = Color.rgb(19, 29, 24)
     private val neon = Color.rgb(57, 255, 20)
-    private val muted = Color.rgb(160, 175, 165)
+    private val muted = Color.rgb(155, 175, 163)
+    private val white = Color.WHITE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,7 +55,7 @@ class MainActivity : Activity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(24), dp(20), dp(28))
+            setPadding(dp(20), dp(24), dp(20), dp(25))
         }
 
         val brand = TextView(this).apply {
@@ -63,159 +68,265 @@ class MainActivity : Activity() {
         root.addView(brand, match())
 
         val subtitle = TextView(this).apply {
-            text = "GAME BOOSTER • NO ROOT"
+            text = "ULTIMATE GAME BOOSTER"
             textSize = 11f
+            letterSpacing = 2f
             setTextColor(muted)
             gravity = Gravity.CENTER
         }
         root.addView(subtitle, match())
         root.addView(space(25))
 
-        root.addView(sectionTitle("SYSTEM PERFORMANCE"))
-        root.addView(space(10))
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(24), dp(20), dp(24))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(
+                    Color.rgb(24, 55, 34),
+                    Color.rgb(13, 27, 20),
+                    Color.rgb(18, 35, 25)
+                )
+            ).apply {
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), Color.rgb(50, 130, 65))
+            }
+        }
+
+        hero.addView(TextView(this).apply {
+            text = "GAMING PERFORMANCE"
+            textSize = 12f
+            letterSpacing = 1.5f
+            setTextColor(muted)
+            gravity = Gravity.CENTER
+        }, match())
+
+        hero.addView(space(8))
+
+        hero.addView(TextView(this).apply {
+            text = "READY TO PLAY?"
+            textSize = 23f
+            setTextColor(white)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }, match())
+
+        hero.addView(space(20))
+
+        val boost = Button(this).apply {
+            text = "⚡  BOOST NOW"
+            textSize = 17f
+            isAllCaps = false
+            setTextColor(Color.BLACK)
+            typeface = Typeface.DEFAULT_BOLD
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(
+                    Color.rgb(57, 255, 20),
+                    Color.rgb(120, 255, 70)
+                )
+            ).apply {
+                cornerRadius = dp(18).toFloat()
+            }
+            minHeight = dp(62)
+            stateListAnimator = null
+            setOnClickListener {
+                refreshStats()
+                Toast.makeText(
+                    this@MainActivity,
+                    "System information refreshed!",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+        hero.addView(boost, match())
+        root.addView(hero, match())
+        root.addView(space(22))
+
+        root.addView(sectionTitle("SYSTEM MONITOR"))
+        root.addView(space(12))
+
+        val statsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
 
         val ramCard = card()
         ramCard.addView(label("RAM MEMORY"))
         ramText = value("Loading...")
         ramCard.addView(ramText)
-        root.addView(ramCard, match())
-        root.addView(space(12))
+        ramProgress = progressBar()
+        ramCard.addView(ramProgress)
+        statsRow.addView(
+            ramCard,
+            LinearLayout.LayoutParams(0, dp(125), 1f).apply {
+                marginEnd = dp(6)
+            }
+        )
 
         val storageCard = card()
-        storageCard.addView(label("INTERNAL STORAGE"))
+        storageCard.addView(label("STORAGE"))
         storageText = value("Loading...")
         storageCard.addView(storageText)
-        root.addView(storageCard, match())
+        storageProgress = progressBar()
+        storageCard.addView(storageProgress)
+        statsRow.addView(
+            storageCard,
+            LinearLayout.LayoutParams(0, dp(125), 1f).apply {
+                marginStart = dp(6)
+            }
+        )
+
+        root.addView(statsRow)
         root.addView(space(22))
 
-        root.addView(sectionTitle("QUICK ACTIONS"))
+        root.addView(sectionTitle("SMART BOOSTER"))
         root.addView(space(12))
 
-        val boost = actionButton("⚡ BOOST NOW")
-        boost.setOnClickListener {
-            refreshStats()
-            Toast.makeText(
-                this,
-                "Performance refreshed!",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-        root.addView(boost, match())
-        root.addView(space(10))
-
-        val clean = actionButton("🧹 CLEAN APP CACHE")
-        clean.setOnClickListener {
-            val before = cacheSize(cacheDir)
-            clearDirectory(cacheDir)
-            val cleaned = before - cacheSize(cacheDir)
-            refreshStats()
-            Toast.makeText(
-                this,
-                "Cleaned: ${formatBytes(cleaned)}",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-        root.addView(clean, match())
-        root.addView(space(10))
-
-        autoCleanButton = actionButton("⚡ START AUTO CLEANER")
+        autoCleanButton = actionButton("⚡  START AUTO CLEANER")
         autoCleanButton.setOnClickListener {
-            val prefs = getSharedPreferences("auto_clean", MODE_PRIVATE)
-            if (prefs.getBoolean("enabled", false)) {
-                stopService(Intent(this, AutoCleanService::class.java))
-                prefs.edit().putBoolean("enabled", false).apply()
-                updateAutoCleanButton()
-                Toast.makeText(this, "Auto Cleaner Stopped", Toast.LENGTH_SHORT).show()
-            } else {
-                prefs.edit().putBoolean("enabled", true).apply()
-                try {
-                    val serviceIntent = Intent(this, AutoCleanService::class.java)
-                    if (android.os.Build.VERSION.SDK_INT >= 26) {
-                        startForegroundService(serviceIntent)
-                    } else {
-                        startService(serviceIntent)
-                    }
-                    updateAutoCleanButton()
-                    Toast.makeText(this, "Auto Cleaner Started", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    prefs.edit().putBoolean("enabled", false).apply()
-                    updateAutoCleanButton()
-                    Toast.makeText(this, "Could not start Cleaner: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
+            toggleAutoCleaner()
         }
         root.addView(autoCleanButton, match())
         root.addView(space(10))
 
-        val batteryButton = actionButton("🔋 ALLOW BACKGROUND RUNNING")
-        batteryButton.setOnClickListener {
-            try {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                        Uri.parse("package:$packageName")
-                    )
-                )
-            } catch (_: Exception) {
-                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-            }
+        val toolsButton = actionButton("☰  MORE TOOLS")
+        toolsButton.setOnClickListener {
+            showTools()
         }
-        root.addView(batteryButton, match())
-        root.addView(space(10))
-
-        val apps = actionButton("📱 MANAGE INSTALLED APPS")
-        apps.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
-        }
-        root.addView(apps, match())
-        root.addView(space(10))
-
-        val cacheManager = actionButton("🧹 APP CACHE MANAGER")
-        cacheManager.setOnClickListener {
-            showCacheApps()
-        }
-        root.addView(cacheManager, match())
-        root.addView(space(10))
-
-        val gaming = actionButton("🎮 GAMING SETTINGS")
-        gaming.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_SETTINGS))
-        }
-        root.addView(gaming, match())
+        root.addView(toolsButton, match())
         root.addView(space(20))
 
         statusText = TextView(this).apply {
-            text = "READY • NO ROOT REQUIRED"
+            text = "● SYSTEM READY"
             textSize = 12f
             setTextColor(neon)
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 1f
         }
         root.addView(statusText, match())
-        root.addView(space(12))
+        root.addView(space(10))
 
-        val note = TextView(this).apply {
-            text = "Android restricts access to other apps' private cache. Select an app in Cache Manager and clear its cache from App Info > Storage."
-            textSize = 11f
+        root.addView(TextView(this).apply {
+            text = "NO ROOT REQUIRED  •  ANDROID GAME UTILITY"
+            textSize = 9f
             setTextColor(muted)
             gravity = Gravity.CENTER
-        }
-        root.addView(note, match())
+            letterSpacing = 1f
+        }, match())
 
         scroll.addView(root)
         setContentView(scroll)
+        updateAutoCleanButton()
+    }
+
+    private fun toggleAutoCleaner() {
+        val prefs = getSharedPreferences("auto_clean", MODE_PRIVATE)
+        val enabled = prefs.getBoolean("enabled", false)
+
+        if (enabled) {
+            stopService(Intent(this, AutoCleanService::class.java))
+            prefs.edit().putBoolean("enabled", false).apply()
+            updateAutoCleanButton()
+            Toast.makeText(this, "Auto Cleaner Stopped", Toast.LENGTH_SHORT).show()
+        } else {
+            prefs.edit().putBoolean("enabled", true).apply()
+            try {
+                val serviceIntent = Intent(this, AutoCleanService::class.java)
+
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
+
+                updateAutoCleanButton()
+                Toast.makeText(this, "Auto Cleaner Started", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                prefs.edit().putBoolean("enabled", false).apply()
+                updateAutoCleanButton()
+                Toast.makeText(
+                    this,
+                    "Could not start Cleaner: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun showTools() {
+        val tools = arrayOf(
+            "🧹  Clean App Cache",
+            "📱  Manage Installed Apps",
+            "🗂  App Cache Manager",
+            "🔋  Allow Background Running",
+            "🎮  Gaming Settings"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("MORE TOOLS")
+            .setItems(tools) { _, which ->
+                when (which) {
+                    0 -> cleanAppCache()
+                    1 -> startActivity(
+                        Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)
+                    )
+                    2 -> showCacheApps()
+                    3 -> allowBackgroundRunning()
+                    4 -> startActivity(Intent(Settings.ACTION_SETTINGS))
+                }
+            }
+            .setNegativeButton("CLOSE", null)
+            .show()
+    }
+
+    private fun cleanAppCache() {
+        val before = cacheSize(cacheDir)
+        clearDirectory(cacheDir)
+        val cleaned = before - cacheSize(cacheDir)
+        refreshStats()
+
+        Toast.makeText(
+            this,
+            "Cleaned: ${formatBytes(cleaned)}",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun allowBackgroundRunning() {
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:$packageName")
+                )
+            )
+        } catch (_: Exception) {
+            startActivity(
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            )
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        if (::autoCleanButton.isInitialized) updateAutoCleanButton()
+        if (::autoCleanButton.isInitialized) {
+            updateAutoCleanButton()
+        }
     }
 
     private fun updateAutoCleanButton() {
+        if (!::autoCleanButton.isInitialized) return
+
         val enabled = getSharedPreferences("auto_clean", MODE_PRIVATE)
             .getBoolean("enabled", false)
+
         autoCleanButton.text =
-            if (enabled) "⏹ STOP AUTO CLEANER" else "⚡ START AUTO CLEANER"
+            if (enabled) "⏹  AUTO CLEANER: ON"
+            else "⚡  START AUTO CLEANER"
+
+        autoCleanButton.setTextColor(if (enabled) neon else white)
     }
 
     private fun showCacheApps() {
@@ -241,11 +352,11 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("APP CACHE MANAGER")
             .setItems(names) { _, which ->
-                val packageName = apps[which].activityInfo.packageName
+                val appPackage = apps[which].activityInfo.packageName
 
                 val details = Intent(
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:$packageName")
+                    Uri.parse("package:$appPackage")
                 )
 
                 try {
@@ -274,60 +385,79 @@ class MainActivity : Activity() {
 
         val total = memory.totalMem
         val used = (total - memory.availMem).coerceAtLeast(0)
-        val percent = if (total > 0) used * 100 / total else 0
+        val percent = if (total > 0) {
+            (used * 100 / total).toInt()
+        } else 0
 
-        ramText.text =
-            "$percent% USED • ${formatBytes(used)} / ${formatBytes(total)}"
+        ramText.text = "$percent% USED"
+        ramProgress.progress = percent.coerceIn(0, 100)
 
         val stat = StatFs(Environment.getDataDirectory().path)
         val totalStorage = stat.totalBytes
         val free = stat.availableBytes
         val usedStorage = totalStorage - free
-        val storagePercent =
-            if (totalStorage > 0) usedStorage * 100 / totalStorage else 0
 
-        storageText.text =
-            "$storagePercent% USED • ${formatBytes(free)} FREE"
+        val storagePercent = if (totalStorage > 0) {
+            (usedStorage * 100 / totalStorage).toInt()
+        } else 0
 
-        statusText.text = "SYSTEM STATUS • UPDATED"
+        storageText.text = "$storagePercent% USED"
+        storageProgress.progress = storagePercent.coerceIn(0, 100)
+
+        statusText.text = "● SYSTEM STATUS UPDATED"
     }
 
     private fun card() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(18), dp(16), dp(18), dp(16))
-        background = rounded(panel, 18)
+        setPadding(dp(13), dp(14), dp(13), dp(12))
+        background = rounded(panel, 18, Color.rgb(39, 65, 48))
     }
 
     private fun label(text: String) = TextView(this).apply {
         this.text = text
-        textSize = 12f
+        textSize = 10f
         setTextColor(muted)
         typeface = Typeface.DEFAULT_BOLD
     }
 
     private fun value(text: String) = TextView(this).apply {
         this.text = text
-        textSize = 18f
+        textSize = 17f
         setTextColor(neon)
         typeface = Typeface.DEFAULT_BOLD
-        setPadding(0, dp(8), 0, 0)
+        setPadding(0, dp(9), 0, dp(12))
     }
 
     private fun sectionTitle(text: String) = TextView(this).apply {
         this.text = text
-        textSize = 13f
+        textSize = 12f
+        letterSpacing = 1.5f
         setTextColor(neon)
         typeface = Typeface.DEFAULT_BOLD
+    }
+
+    private fun progressBar() = ProgressBar(
+        this,
+        null,
+        android.R.attr.progressBarStyleHorizontal
+    ).apply {
+        max = 100
+        progress = 0
+        progressTintList = android.content.res.ColorStateList.valueOf(neon)
+        progressBackgroundTintList =
+            android.content.res.ColorStateList.valueOf(
+                Color.rgb(45, 60, 50)
+            )
     }
 
     private fun actionButton(text: String) = Button(this).apply {
         this.text = text
         textSize = 14f
         isAllCaps = false
-        setTextColor(neon)
+        setTextColor(white)
         typeface = Typeface.DEFAULT_BOLD
-        background = rounded(panel, 14, neon)
-        minHeight = dp(58)
+        background = rounded(panel, 16, Color.rgb(55, 100, 65))
+        minHeight = dp(56)
         stateListAnimator = null
     }
 
@@ -375,3 +505,4 @@ class MainActivity : Activity() {
         }
     }
 }
+
