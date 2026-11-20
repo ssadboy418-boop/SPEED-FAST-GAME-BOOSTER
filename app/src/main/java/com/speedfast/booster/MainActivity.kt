@@ -45,6 +45,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         buildDashboard()
         refreshStats()
+        consumeBatchResult()
     }
 
     private fun buildDashboard() {
@@ -190,6 +191,13 @@ class MainActivity : Activity() {
         root.addView(autoCleanButton, match())
         root.addView(space(10))
 
+        val cleanAllButton = actionButton("🧹  CLEAN ALL APPS")
+        cleanAllButton.setOnClickListener {
+            startBatchCacheClean()
+        }
+        root.addView(cleanAllButton, match())
+        root.addView(space(10))
+
         val toolsButton = actionButton("☰  MORE TOOLS")
         toolsButton.setOnClickListener {
             showTools()
@@ -294,6 +302,105 @@ class MainActivity : Activity() {
         ).show()
     }
 
+    private fun startBatchCacheClean() {
+        val component = android.content.ComponentName(
+            this,
+            CacheAccessibilityService::class.java
+        ).flattenToString()
+
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: ""
+
+        if (!enabledServices.split(":").any {
+                it.equals(component, ignoreCase = true)
+            }) {
+            AlertDialog.Builder(this)
+                .setTitle("Accessibility permission needed")
+                .setMessage(
+                    "চালু করতে Accessibility Settings-এ গিয়ে " +
+                    "SPEED FAST GAME BOOSTER নির্বাচন করো।"
+                )
+                .setPositiveButton("OPEN SETTINGS") { _, _ ->
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+                .setNegativeButton("CANCEL", null)
+                .show()
+            return
+        }
+
+        val apps = packageManager.getInstalledApplications(0)
+            .filter {
+                it.packageName != packageName &&
+                (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0
+            }
+            .sortedBy {
+                packageManager.getApplicationLabel(it).toString()
+                    .lowercase(Locale.ROOT)
+            }
+
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "No installed apps found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val queue = apps.map { it.packageName }
+        val prefs = getSharedPreferences("batch_cache", MODE_PRIVATE)
+        val freeBefore = StatFs(Environment.getDataDirectory().path).availableBytes
+
+        prefs.edit()
+            .putString("queue", queue.joinToString("\\n"))
+            .putInt("index", 0)
+            .putInt("step", 0)
+            .putLong("initial_free", freeBefore)
+            .putBoolean("running", true)
+            .putBoolean("result_pending", false)
+            .apply()
+
+        statusText.text = "● CLEANING APPS..."
+        Toast.makeText(
+            this,
+            "Starting cache cleaning: ${queue.size} apps",
+            Toast.LENGTH_LONG
+        ).show()
+
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:${queue[0]}")
+                )
+            )
+        } catch (e: Exception) {
+            prefs.edit().putBoolean("running", false).apply()
+            Toast.makeText(
+                this,
+                "Could not open App Info: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun consumeBatchResult() {
+        val prefs = getSharedPreferences("batch_cache", MODE_PRIVATE)
+        if (!prefs.getBoolean("result_pending", false)) return
+
+        val cleaned = prefs.getLong("cleaned_bytes", 0L)
+        val count = prefs.getInt("processed_count", 0)
+
+        prefs.edit().putBoolean("result_pending", false).apply()
+
+        refreshStats()
+        statusText.text = "● CLEANING FINISHED"
+
+        Toast.makeText(
+            this,
+            "Finished $count apps. Approx. freed: ${formatBytes(cleaned)}",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
     private fun allowBackgroundRunning() {
         try {
             startActivity(
@@ -313,6 +420,7 @@ class MainActivity : Activity() {
         super.onResume()
         if (::autoCleanButton.isInitialized) {
             updateAutoCleanButton()
+            consumeBatchResult()
         }
     }
 
