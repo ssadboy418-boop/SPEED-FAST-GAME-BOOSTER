@@ -27,6 +27,7 @@ class MainActivity : Activity() {
     private lateinit var ramText: TextView
     private lateinit var storageText: TextView
     private lateinit var statusText: TextView
+    private lateinit var autoCleanButton: Button
 
     private val bg = Color.rgb(8, 13, 11)
     private val panel = Color.rgb(19, 28, 24)
@@ -117,6 +118,51 @@ class MainActivity : Activity() {
         root.addView(clean, match())
         root.addView(space(10))
 
+        autoCleanButton = actionButton("⚡ START AUTO CLEANER")
+        autoCleanButton.setOnClickListener {
+            val prefs = getSharedPreferences("auto_clean", MODE_PRIVATE)
+            if (prefs.getBoolean("enabled", false)) {
+                stopService(Intent(this, AutoCleanService::class.java))
+                prefs.edit().putBoolean("enabled", false).apply()
+                updateAutoCleanButton()
+                Toast.makeText(this, "Auto Cleaner Stopped", Toast.LENGTH_SHORT).show()
+            } else {
+                prefs.edit().putBoolean("enabled", true).apply()
+                try {
+                    val serviceIntent = Intent(this, AutoCleanService::class.java)
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                    updateAutoCleanButton()
+                    Toast.makeText(this, "Auto Cleaner Started", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    prefs.edit().putBoolean("enabled", false).apply()
+                    updateAutoCleanButton()
+                    Toast.makeText(this, "Could not start Cleaner: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        root.addView(autoCleanButton, match())
+        root.addView(space(10))
+
+        val batteryButton = actionButton("🔋 ALLOW BACKGROUND RUNNING")
+        batteryButton.setOnClickListener {
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            } catch (_: Exception) {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            }
+        }
+        root.addView(batteryButton, match())
+        root.addView(space(10))
+
         val apps = actionButton("📱 MANAGE INSTALLED APPS")
         apps.setOnClickListener {
             startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
@@ -158,6 +204,18 @@ class MainActivity : Activity() {
 
         scroll.addView(root)
         setContentView(scroll)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::autoCleanButton.isInitialized) updateAutoCleanButton()
+    }
+
+    private fun updateAutoCleanButton() {
+        val enabled = getSharedPreferences("auto_clean", MODE_PRIVATE)
+            .getBoolean("enabled", false)
+        autoCleanButton.text =
+            if (enabled) "⏹ STOP AUTO CLEANER" else "⚡ START AUTO CLEANER"
     }
 
     private fun showCacheApps() {
