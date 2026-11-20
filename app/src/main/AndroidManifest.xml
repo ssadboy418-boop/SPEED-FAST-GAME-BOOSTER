@@ -1,3 +1,4 @@
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -31,6 +32,18 @@
                 android:value="Automatic cleanup of this app's own cache files" />
         </service>
 
+        <service
+            android:name=".CacheAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/cache_accessibility_config"/>
+        </service>
+
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
@@ -42,3 +55,4 @@
 
     </application>
 </manifest>
+
