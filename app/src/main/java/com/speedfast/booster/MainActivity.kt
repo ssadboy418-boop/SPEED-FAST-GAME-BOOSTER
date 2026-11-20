@@ -2,10 +2,12 @@ package com.speedfast.booster
 
 import android.app.Activity
 import android.app.ActivityManager
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.StatFs
@@ -29,7 +31,6 @@ class MainActivity : Activity() {
     private val bg = Color.rgb(8, 13, 11)
     private val panel = Color.rgb(19, 28, 24)
     private val neon = Color.rgb(57, 255, 20)
-    private val white = Color.WHITE
     private val muted = Color.rgb(160, 175, 165)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,9 +62,8 @@ class MainActivity : Activity() {
         root.addView(brand, match())
 
         val subtitle = TextView(this).apply {
-            text = "GAME BOOSTER  •  NO ROOT"
+            text = "GAME BOOSTER • NO ROOT"
             textSize = 11f
-            letterSpacing = 0.18f
             setTextColor(muted)
             gravity = Gravity.CENTER
         }
@@ -90,53 +90,50 @@ class MainActivity : Activity() {
         root.addView(sectionTitle("QUICK ACTIONS"))
         root.addView(space(12))
 
-        val boost = actionButton("⚡  BOOST NOW")
+        val boost = actionButton("⚡ BOOST NOW")
         boost.setOnClickListener {
             refreshStats()
             Toast.makeText(
                 this,
-                "Performance refreshed. Android controls background apps.",
-                Toast.LENGTH_LONG
+                "Performance refreshed!",
+                Toast.LENGTH_SHORT
             ).show()
         }
         root.addView(boost, match())
         root.addView(space(10))
 
-        val clean = actionButton("🧹  CLEAN APP CACHE")
+        val clean = actionButton("🧹 CLEAN APP CACHE")
         clean.setOnClickListener {
             val before = cacheSize(cacheDir)
             clearDirectory(cacheDir)
-            val after = cacheSize(cacheDir)
-            val cleaned = (before - after).coerceAtLeast(0)
+            val cleaned = before - cacheSize(cacheDir)
             refreshStats()
             Toast.makeText(
                 this,
-                "App cache cleaned: ${formatBytes(cleaned)}",
+                "Cleaned: ${formatBytes(cleaned)}",
                 Toast.LENGTH_LONG
             ).show()
         }
         root.addView(clean, match())
         root.addView(space(10))
 
-        val apps = actionButton("📱  MANAGE INSTALLED APPS")
+        val apps = actionButton("📱 MANAGE INSTALLED APPS")
         apps.setOnClickListener {
-            try {
-                startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
-            } catch (_: Exception) {
-                startActivity(Intent(Settings.ACTION_SETTINGS))
-            }
+            startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS))
         }
         root.addView(apps, match())
         root.addView(space(10))
 
-        val gaming = actionButton("🎮  GAMING SETTINGS")
+        val cacheManager = actionButton("🧹 APP CACHE MANAGER")
+        cacheManager.setOnClickListener {
+            showCacheApps()
+        }
+        root.addView(cacheManager, match())
+        root.addView(space(10))
+
+        val gaming = actionButton("🎮 GAMING SETTINGS")
         gaming.setOnClickListener {
             startActivity(Intent(Settings.ACTION_SETTINGS))
-            Toast.makeText(
-                this,
-                "Set Do Not Disturb and gaming preferences in Settings.",
-                Toast.LENGTH_LONG
-            ).show()
         }
         root.addView(gaming, match())
         root.addView(space(20))
@@ -152,7 +149,7 @@ class MainActivity : Activity() {
         root.addView(space(12))
 
         val note = TextView(this).apply {
-            text = "Note: Android does not allow ordinary apps to force-stop all other apps or erase their private cache. This cleaner removes only this app's own cache."
+            text = "Android restricts access to other apps' private cache. Select an app in Cache Manager and clear its cache from App Info > Storage."
             textSize = 11f
             setTextColor(muted)
             gravity = Gravity.CENTER
@@ -163,37 +160,84 @@ class MainActivity : Activity() {
         setContentView(scroll)
     }
 
+    private fun showCacheApps() {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+
+        val apps = packageManager.queryIntentActivities(intent, 0)
+            .distinctBy { it.activityInfo.packageName }
+            .sortedBy {
+                it.loadLabel(packageManager).toString().lowercase()
+            }
+
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "No apps found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val names = apps.map {
+            it.loadLabel(packageManager).toString()
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("APP CACHE MANAGER")
+            .setItems(names) { _, which ->
+                val packageName = apps[which].activityInfo.packageName
+
+                val details = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")
+                )
+
+                try {
+                    startActivity(details)
+                    Toast.makeText(
+                        this,
+                        "Open Storage > Clear cache",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } catch (_: Exception) {
+                    Toast.makeText(
+                        this,
+                        "Could not open App Info",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .setNegativeButton("CLOSE", null)
+            .show()
+    }
+
     private fun refreshStats() {
         val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         val memory = ActivityManager.MemoryInfo()
         manager.getMemoryInfo(memory)
 
         val total = memory.totalMem
-        val available = memory.availMem
-        val used = (total - available).coerceAtLeast(0)
-        val percent = if (total > 0) (used * 100 / total).toInt() else 0
+        val used = (total - memory.availMem).coerceAtLeast(0)
+        val percent = if (total > 0) used * 100 / total else 0
 
-        ramText.text = "$percent% USED  •  ${formatBytes(used)} / ${formatBytes(total)}"
+        ramText.text =
+            "$percent% USED • ${formatBytes(used)} / ${formatBytes(total)}"
 
         val stat = StatFs(Environment.getDataDirectory().path)
         val totalStorage = stat.totalBytes
-        val freeStorage = stat.availableBytes
-        val usedStorage = (totalStorage - freeStorage).coerceAtLeast(0)
+        val free = stat.availableBytes
+        val usedStorage = totalStorage - free
         val storagePercent =
-            if (totalStorage > 0) (usedStorage * 100 / totalStorage).toInt() else 0
+            if (totalStorage > 0) usedStorage * 100 / totalStorage else 0
 
         storageText.text =
-            "$storagePercent% USED  •  ${formatBytes(freeStorage)} FREE"
+            "$storagePercent% USED • ${formatBytes(free)} FREE"
 
         statusText.text = "SYSTEM STATUS • UPDATED"
     }
 
-    private fun card(): LinearLayout {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(16), dp(18), dp(16))
-            background = rounded(panel, 18)
-        }
+    private fun card() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(18), dp(16), dp(18), dp(16))
+        background = rounded(panel, 18)
     }
 
     private fun label(text: String) = TextView(this).apply {
@@ -233,12 +277,10 @@ class MainActivity : Activity() {
         color: Int,
         radius: Int,
         stroke: Int? = null
-    ): GradientDrawable {
-        return GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = dp(radius).toFloat()
-            if (stroke != null) setStroke(dp(1), stroke)
-        }
+    ) = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = dp(radius).toFloat()
+        if (stroke != null) setStroke(dp(1), stroke)
     }
 
     private fun space(height: Int) = View(this).apply {
@@ -250,7 +292,7 @@ class MainActivity : Activity() {
         LinearLayout.LayoutParams.WRAP_CONTENT
     )
 
-    private fun dp(value: Int): Int =
+    private fun dp(value: Int) =
         (value * resources.displayMetrics.density).toInt()
 
     private fun cacheSize(file: File): Long {
@@ -260,9 +302,9 @@ class MainActivity : Activity() {
     }
 
     private fun clearDirectory(directory: File) {
-        directory.listFiles()?.forEach { file ->
-            if (file.isDirectory) clearDirectory(file)
-            file.delete()
+        directory.listFiles()?.forEach {
+            if (it.isDirectory) clearDirectory(it)
+            it.delete()
         }
     }
 
